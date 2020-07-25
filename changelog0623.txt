@@ -1,0 +1,881 @@
+busybox 操作 4.4.3编译器没用
+make menuconfig
+make 
+make CONFIG_PREFIX=../root_fs3 install
+CROSS_COMPILE = /opt/EmbedSky/crosstools_3.4.5_softfloat/gcc-3.4.5-glibc-2.3.6/arm-linux/bin/arm-linux-
+mkdir -p dev etc home/sky lib mnt opt proc root sys tmp usr/lib usr/share var
+mknod console c 5 1
+mknod null c 1 3
+mknod tq2440_serial0 c 204 64
+cp -f /opt/EmbedSky/crosstools_3.4.5_softfloat/gcc-3.4.5-glibc-2.3.6/arm-linux/arm-linux/lib/*.so* lib -a
+相关文件都777
+https://blog.csdn.net/techhome803/article/details/10136453
+我们将这些定义放到出错的ionice.c文件中 
+busubox error
+#include <sys/syscall.h>
+#include <asm/unistd.h>
+#include "libbb.h"
+#define __NR_ioprio_set              289
+#define __NR_ioprio_get              290
+ 
+#define SYS_ioprio_set __NR_ioprio_set
+
+原文链接：https://blog.csdn.net/yikai2009/article/details/8272408
+一. 系统移植出现的问题总结 
+1. 系统启动卡在Freeing init memory: 176K
+用 /opt/EmbedSky/4.3.3/bin/arm-none-linux-gnueabi-gcc编译之后系统启动卡在 Freeing init memory: 176K
+换 /opt/EmbedSky/crosstools_3.4.5_softfloat/gcc-3.4.5-glibc-2.3.6/arm-linux/bin/arm-linux-gcc
+————————————————
+版权声明：本文为CSDN博主「wangcong02345」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/wangcong02345/article/details/51810932
+https://blog.csdn.net/wangcong02345/article/details/51810932?locationNum=8&fps=1
+
+环境变量
+echo $KBUILD_OUTPUT
+export KBUILD_OUTPUT=./build 
+export ARCH=arm
+
+编译 :
+make distclean
+make tq2440_defconfig
+make CROSS_COMPILE=arm-linux-
+
+make distclean
+make tq2440_defconfig
+make CROSS_COMPILE=arm-linux-
+
+
+
+make distclean
+make EmbedSky_config
+make all
+\\
+
+arm-linux-objdump -d ./build/u-boot > u-boot.s
+
+arm-linux-objdump -d ./build/u-boot > u-boot.s
+33000000 <__image_copy_start>:
+/FriendlyARM/toolschain/4.4.3/bin/arm-linux-objdump
+
+      //12M  * (0X38+8) /(0X02+2) * 4 =  12*64/16 =48M
+	  ldr r0, =UPLLCON
+	  ldr r1, =0x38022
+	  str r1, [r0]
+
+#define S3C2440_UPLL_48MHZ	((0x38<<12)|(0x02<<4)|(0x02))	
+NOR 测试
+TQ2440 # protect off all
+Un-Protect Flash Bank # 1
+TQ2440 # erase 0 3ffff
+...done
+TQ2440 # cp.b 30000000 0 40000
+Copy to Flash... done
+TQ2440 # cmp.b 0 30000000 40000
+Total of 16 byte(s) were the same
+再来读
+TQ2440 # md.b 30000000 10
+
+网络使用
+TQ2440 # set ethaddr 00:12:34:56:ab:cd 设置 mac 地址
+TQ2440 # set ipaddr 192.168.1.6 设置开发板 IP 地址
+TQ2440 # set serverip 192.168.1.8 设置 tftp 服务器 IP 地址
+TQ2440 # ping 192.168.1.8 ping 主机
+set ethaddr 00:12:34:56:ab:cd
+set ipaddr 192.168.1.15
+set serverip 192.168.1.7
+ping 192.168.1.7
+host 192.168.1.7 is alive
+打开tftpserver软件
+tftp  0x30000000 u-boot.bin
+protect off all
+erase 0 3ffff
+cp.b 30000000 0 40000
+cmp.b 0 30000000 40000
+
+烧录NAND
+tftp  0x30000000 u-boot.bin
+tftp  0x30000000 u-boot_128.bin
+nand erase.part bios
+nand write 0x30000000 bios
+nand read  0x31000000 bios
+cmp.b 0x30000000 0x31000000 40000
+Total of 262144 byte(s) were the same
+printenv
+内核下载
+tftp  0x30000000 uImage
+tftp 30000000 uImage_tumb
+tftp  0x30000000 uImage2.6.30.4
+tftp  0x30000000 uImage_25
+uImage2.6.30.4
+nand erase.part kernel
+nand write 30000000 kernel
+nand read 30000000 kernel 0x00300000;bootm 30000000
+nand write 30000000 kernel 1d24bc  //2401048
+文件系统下载
+nand erase.part root
+tftp 30000000 root_fs3.yaffs
+nand write.yaffs2 0x30000000 root e421c0
+
+mkimage -A arm -O linux -T kernel -C none -a 30008000 -e 30008000 -n linux-2.6.25.8 -d zImage_2.6.25.8_Q43_20100601.bin uImage2.6.25.8
+mkimage -A arm -O linux -T kernel -C none -a 30008000 -e 30008000 -n linux-2.6.30.4 -d zImage_W43_20121214.bin uImage2.6.30.4
+
+nand dump 500000
+mtdparts default
+
+nand erase.part bios
+nand erase.part kernel
+nand erase.part root
+nand write 30008000 bios
+nand write 30008000 kernel
+nand write 30000000 root a4df00
+nand read 31008000 bios 40000
+cmp.b 0x30008000 0x31008000 40000
+nand read 31008000 kernel 300000
+nand read root
+
+
+nand read 30008000 kernel;bootm 30008000
+kernel
+root
+tftp 0x30008000 zImage.img
+bootm 0x30008000
+tftp  0x30008000 uImage
+bootm 0x30008000
+mkimage -n 'linux-2.6.30.4' -A arm -O linux -T kernel -C none -a 0x30008000 -e 0x30008040 -d zImage zImage.img
+2401048
+12M
+32.768kHz
+NAND flash ： K9F2G08U0B  LDATA0-LDATA15 I/O0-I/O15 没有地址？？？
+NOR flash： AM29LV160DB   nGCS0 片选  A0-A21 LADDR1-LADDR22 D0-D15  LDATA0- LDATA15
+4Banks x 4M x 16Bit Synchronous DRAM 断电易失设备 RAM： 2 22 * 2    * 4
+HY57V561620FTP-H 2片 LnSCS6 片选 地址是LADDR2-LADDR14 A0-A12  片1 DQ0-D015 LDATA0- LDATA15 片2  DQ0-D016 LDATA16- LDATA31
+BA0-BA1  LADDR24-LADDR25  / LADDR25-LADDR26  22  存储器 （SROM/SDRAM ） 地址引脚 连接  @ 32 位数据总线 A2,A3...开始
+0x3000 0000 - 0x3400 0000  共64M SDRAM 中
+串口：K13 TXD0 K14 RXD0
+
+#define CONFIG_DM9000_BASE      0x20000300  //网卡片选地址  网络ping通的关键
+
+#define CONFIG_SYS_TEXT_BASE		0x33000000
+.globl lowlevel_init
+lowlevel_init:
+	ldr     r0, =SMRDATA
+	ldr	r1, =CONFIG_SYS_TEXT_BASE
+	sub	r0, r0, r1
+	ldr	r1, =BWSCON	/* Bus Width Status Controller */
+	add     r2, r0, #13*4
+0:
+	ldr     r3, [r0], #4
+	str     r3, [r1], #4
+	cmp     r2, r0
+ifneq ($(CONFIG_SYS_TEXT_BASE),)
+LDFLAGS_u-boot += -Ttext $(CONFIG_SYS_TEXT_BASE)//CONFIG_SYS_TEXT_BASE uboot代码编译起始地址
+MKIMAGEFLAGS_u-boot.img = -A $(ARCH) -T firmware -C none -O u-boot \
+	-a $(CONFIG_SYS_TEXT_BASE) -e $(CONFIG_SYS_UBOOT_START) \	
+u-boot.elf: u-boot.bin
+	@$(OBJCOPY)  -B aarch64 -I binary -O elf64-littleaarch64 \
+		$< u-boot-elf.o
+	@$(LD) u-boot-elf.o -o $@ \
+		--defsym=_start=$(CONFIG_SYS_TEXT_BASE) \
+		-Ttext=$(CONFIG_SYS_TEXT_BASE)
+#define CONFIG_NR_DRAM_BANKS	1          /* we have 1 bank of DRAM */
+#define PHYS_SDRAM_1		0x30000000 /* SDRAM Bank #1 */
+#define PHYS_SDRAM_1_SIZE	0x04000000 /* 64 MB */
+#define PHYS_FLASH_1		0x00000000 /* Flash Bank #0 */
+#define CONFIG_SYS_FLASH_BASE	PHYS_FLASH_1
+#define CONFIG_SYS_FLASH_LEGACY_1024Kx16
+
+#define PHYS_SDRAM_1_SIZE	0x04000000 /* 64 MB */
+	gd->ram_size = PHYS_SDRAM_1_SIZE;
+#define CONFIG_SYS_SDRAM_BASE	PHYS_SDRAM_1  //用于空间的初始化及空间地址的划分参考
+#ifdef CONFIG_SYS_SDRAM_BASE
+	gd->ram_top = CONFIG_SYS_SDRAM_BASE;
+#endif
+	gd->ram_top += get_effective_memsize();
+	gd->ram_top = board_get_usable_ram_top(gd->mon_len);
+	gd->relocaddr = gd->ram_top;	//340000000  从此处往低地址开辟空间区
+__weak void dram_init_banksize(void)
+#if defined(CONFIG_NR_DRAM_BANKS) && defined(CONFIG_SYS_SDRAM_BASE)
+	gd->bd->bi_dram[0].start = CONFIG_SYS_SDRAM_BASE;
+	gd->bd->bi_dram[0].size = get_effective_memsize();	
+	
+TACLS ：   2     2
+TCLS 12ns   
+TALS 12ns
+
+TWRPH0：  2      1 + 1
+TWP 12ns   
+
+TWRPH1：  1      0 + 1
+tclh 5ns  
+talh 5ns
+
+
+#define TACLS           2   
+#define TWRPH0         2+1   
+#define TWRPH1          0+1  
+
+#define TACLS   0
+#define TWRPH0  4
+#define TWRPH1  2
+
+	dev->enetaddr[0] = 0x00;
+	dev->enetaddr[1] = 0x1a;
+	dev->enetaddr[2] = 0x2b;
+	dev->enetaddr[3] = 0x3c;
+	dev->enetaddr[4] = 0x4d;
+	dev->enetaddr[5] = 0x5e;
+寄存器扩展：
+start.S
+# if defined(CONFIG_S3C2410)
+	ldr	r1, =0x3ff
+	ldr	r0, =INTSUBMSK
+	str	r1, [r0]
+# endif
+
+变成
+
+# if defined(CONFIG_S3C2440)
+	ldr	r1, =0x7fff
+	ldr	r0, =INTSUBMSK
+	str	r1, [r0]
+#else
+	ldr	r1, =0x3ff
+	ldr	r0, =INTSUBMSK
+	str	r1, [r0]
+# endif
+时钟：
+# if defined(CONFIG_S3C2440)
+	/* FCLK:HCLK:PCLK = 1:4:8 */
+	/* default FCLK is 120 MHz ! */
+#define MPLLCON 0x4C000004
+#define UPLLCON 0x4C000008
+	ldr	r0, =CLKDIVN
+	mov	r1, #5
+	str	r1, [r0]
+	//12M * 2 * (7F+8) /(0X02+2) * 2 =  12*135/4 =405M
+	ldr	r0, =MPLLCON
+	ldr	r1, =0x7f021
+	str	r1, [r0]
+	//12M  * (0X38+8) /(0X02+2) * 4 =  12*64/16 =48M
+	ldr	r0, =UPLLCON
+	ldr	r1, =0x38022
+	str	r1, [r0]	
+	
+#else
+	/* FCLK:HCLK:PCLK = 1:2:4 */
+	/* default FCLK is 120 MHz ! */
+	ldr	r0, =CLKDIVN
+	mov	r1, #3
+	str	r1, [r0]
+# endif
+
+Speed.c (arch\arm\cpu\arm920t\s3c24x0):static ulong get_PLLCLK(int pllreg)
+#define FCLK_SPEED 1
+#if (FCLK_SPEED == 0)		/* Fout = 203MHz, Fin = 12MHz for Audio */
+#define M_MDIV	0xC3
+#define M_PDIV	0x4
+#define M_SDIV	0x1
+#elif (FCLK_SPEED == 1)		/* Fout = 202.8MHz */
+#define M_MDIV	0xA1
+#define M_PDIV	0x3
+#define M_SDIV	0x1
+#elif (FCLK_SPEED == 2)		/* Fout = 202.8MHz */
+#define M_MDIV	0x7F
+#define M_PDIV	0x2
+#define M_SDIV	0x1
+#endif
+
+#define USB_CLOCK 2
+
+#if (USB_CLOCK == 0)
+#define U_M_MDIV	0xA1
+#define U_M_PDIV	0x3
+#define U_M_SDIV	0x1
+#elif (USB_CLOCK == 1)
+#define U_M_MDIV	0x48
+#define U_M_PDIV	0x3
+#define U_M_SDIV	0x2
+#elif (USB_CLOCK == 2)
+#define U_M_MDIV	0x38
+#define U_M_PDIV	0x2
+#define U_M_SDIV	0x2
+#endif
+串口部分更改：
+#define CONFIG_BAUDRATE         9600
+CONFIG_SERIAL1
+GPIO外围初始化:
+board_early_init_f
+
+地址划分：
+参数：
+	gd->bd->bi_arch_number = MACH_TYPE_TQ2440;
+	gd->bd->bi_boot_params = 0x30000100;
+环境变量;
+#define CONFIG_SYS_TEXT_BASE	0x0//设置系统代码段的基地址，设为 0x0
+CONFIG_SYS_TEXT_BASE变量在uboot的两次链接过程都用到，对应的选项是-Ttext $(CONFIG_SYS_TEXT_BASE)指定了text segment的起始链接地址。
+CONFIG_SYS_TEXT_BASE则指定了u-boot链接的起始地址，如其定义如下：
+#define CONFIG_SYS_TEXT_BASE   0x04000000
+       在生成的u-boot.map中可看到链接后各函数的链接地址，如下所示，可看出链接起始地址确实为0x04000000
+		arch/arm/cpu/armv7/start.o(.text*)
+		.text          0x04000000      0x3a0 arch/arm/cpu/armv7/start.o
+					   0x04000040                _end_vect			   
+加载地址：是指程序实际在内存上存放的地址
+0x3000 0000 - 0x3400 0000  共64M
+#define CONFIG_SYS_TEXT_BASE	0x3000 8000  定义在0x3000 0000 到 0x3400 0000之间   tlb 地址= 0x3400 0000-4096*4=0x33ff 0000
+gd->bd->bi_boot_params = 0x30000100; 所以 UBOOT内容最好放在0x33ff 0000-0x30000100 之间 根据实际编译大小分配 最好靠近低端地址 毕竟存放约2个uboot代码内容
+0x3300 0000 16M 够用的么 uboot 大概多大？ 编译后不到1M 大概几百K  网上是0x33f0 0000 为1M空间 够用
+从 CONFIG_SYS_TEXT_BASE 地址拷贝到 SDRAM 运行
+NOR启动:
+norflash 被映射到 0x0 地址然后CPU从0处运行
+if (jedec_flash_match(info, info->start[0]))break;//匹配则用jedec_table[i]填充info jedec_table[] 是nor 的芯片资料 需要把实际的nor添加进去
+基本都是操作寄存器地址及数据 按照时序来
+
+NAND启动:
+前4K自动拷贝到RAM中 进行地址无关运行 ，然后拷贝相关代码到 SDRAM 中 运行
+https://www.cnblogs.com/kele-dad/p/7019827.html
+https://www.cnblogs.com/kele-dad/p/7050780.html
+添加 s3c2440_nand.c,为控制器驱动文件，操作寄存器
+struct nand_flash_dev nand_flash_ids[] = {添加对应芯片id
+		if (!mtd->name)
+			mtd->name = type->name;//nand_flash_ids->name;
+#ifdef CONFIG_CMD_NAND 定义使用NAND
+static int initr_nand(void)
+	nand_init();
+	#ifdef CONFIG_SYS_NAND_SELF_INIT
+		board_nand_init();
+			board_nand_init(nand)
+			nand_scan(mtd, maxchips)//扫描ids表，对比读寄存器获取的设备参数，从而获取列表值并填充chip结构体 
+			nand_register(i, mtd);
+				nand_info[devnum] = mtd;
+				sprintf(dev_name[devnum], "nand%d", devnum);
+				mtd->name = dev_name[devnum];
+				add_mtd_device(mtd);
+					dev_set_name(&mtd->dev, "mtd%d", i);
+					dev_set_drvdata(&mtd->dev, mtd);
+					if (device_register(&mtd->dev) != 0)				
+	
+网口：
+DM9000
+nCGS4片选 CMD接LADDR2  -》ADDR2 地址只有两个  0x2000 0000  和 0x2000 0004   
+dm9000_init
+DM9000_IO =
+DM9000_DATA =
+#ifdef CONFIG_CMD_NET
+static int initr_net(void)
+	eth_initialize();
+		int board_eth_init(bd_t *bis)
+		#ifdef CONFIG_CS8900  //换成CONFIG_CS9000？
+			rc = cs8900_initialize(0, CONFIG_CS8900_BASE);//cs9000_initialize
+		#endif
+
+后续：
+usb/mmc/sd/yassf2/
+
+
+
+
+static int jump_to_copy(void)//存疑？？？
+	if (gd->flags & GD_FLG_SKIP_RELOC)return 0;	
+	relocate_code(gd->start_addr_sp, gd->new_gd, gd->relocaddr);
+
+初始化流程：
+crt0.S (arch\arm\lib):	bl	board_init_f
+	mov	r0, #0
+	bl	board_init_f
+void board_init_f(ulong boot_flags)
+	gd = &data;
+	gd->flags = boot_flags;//0
+	gd->have_console = 0;
+	if (initcall_run_list(init_sequence_f))
+static init_fnc_t init_sequence_f[] = {
+setup_mon_len,
+	gd->mon_len = (ulong)&__bss_end - CONFIG_SYS_MONITOR_BASE;//存疑 uboot长度 我认为是__text_start
+	/* TODO: use (ulong)&__bss_end - (ulong)&__text_start; ? */  
+	#define CONFIG_SYS_MONITOR_BASE	CONFIG_SYS_FLASH_BASE
+	#define CONFIG_SYS_FLASH_BASE	PHYS_FLASH_1  #define PHYS_FLASH_1		0x00000000 /* Flash Bank #0 */
+timer_init
+env_init
+	Smdk2410.h (include\configs):#define CONFIG_ENV_IS_IN_FLASH
+	obj-$(CONFIG_ENV_IS_IN_FLASH) += env_flash.o	
+	int env_init(void)
+		if (crc32(0, env_ptr->data, ENV_SIZE) == env_ptr->crc) {//获取以前存储的内容
+			gd->env_addr	= (ulong)&(env_ptr->data);
+			gd->env_valid	= 1; return 0;}
+		gd->env_addr	= (ulong)&default_environment[0];//如果没有存储过则获取默认环境变量
+		gd->env_valid	= 0;
+	#define CONFIG_ENV_ADDR			(CONFIG_SYS_FLASH_BASE + 0x070000)
+	#define CONFIG_SYS_FLASH_BASE	PHYS_FLASH_1
+	#define PHYS_FLASH_1		0x00000000 /* Flash Bank #0 */
+	env_t *env_ptr = (env_t *)CONFIG_ENV_ADDR;
+	static env_t *flash_addr = (env_t *)CONFIG_ENV_ADDR;
+	int saveenv(void) 会存储 env_htab 并计算 crc 数据到 flash_addr
+	void set_default_env(const char *s)
+		if (himport_r(&env_htab, (char *)default_environment,sizeof(default_environment), '\0', flags, 0,0, NULL) == 0)
+		//把default_environment解析到env_htab中
+	set_default_vars
+	env_import
+	void env_relocate(void)
+	env_relocate_spec();
+	"bootargs="	CONFIG_BOOTARGS			"\0"
+init_baud_rate,		/* initialze baudrate settings */
+	gd->baudrate = getenv_ulong("baudrate", 10, CONFIG_BAUDRATE);	//serial_s3c24x0 如果没有预设置则配置为CONFIG_BAUDRATE
+	#define CONFIG_BAUDRATE         9600
+serial_init,		/* serial communications setup */
+Serial.c (drivers\serial):int serial_init(void)
+	gd->flags |= GD_FLG_SERIAL_READY;
+	return get_current()->start();//default_serial_console();//serial_init_dev(const int dev_index)//串口初始化
+	__weak struct serial_device *default_serial_console(void)
+	#if defined(CONFIG_SERIAL1)
+		return &s3c24xx_serial0_device;	
+	#define CONFIG_SERIAL1		1	/* we use SERIAL 1 on SMDK2410 */
+	DECLARE_S3C_SERIAL_FUNCTIONS(0);
+	struct serial_device s3c24xx_serial0_device =
+	INIT_S3C_SERIAL_STRUCTURE(0, "s3ser0");
+	#define INIT_S3C_SERIAL_STRUCTURE(port, __name) {	\
+		.name	= __name,				\
+		.start	= s3serial##port##_init,		\ //s3serial0_init
+		.setbrg	= s3serial##port##_setbrg,		\
+		.getc	= s3serial##port##_getc,		\
+		.tstc	= s3serial##port##_tstc,		\
+		.putc	= s3serial##port##_putc,		\
+	#define DECLARE_S3C_SERIAL_FUNCTIONS(port) \
+		int s3serial##port##_init(void) \{ \
+			return serial_init_dev(port); //static int serial_init_dev(const int dev_index)//串口初始化
+console_init_f,		/* stage 1 init of console */	
+	gd->have_console = 1;
+display_text_info,	/* show debugging info if required */
+	bss_start = (ulong)&__bss_start;
+	bss_end = (ulong)&__bss_end;
+	text_base = CONFIG_SYS_TEXT_BASE;
+dram_init,		/* configure available RAM banks */
+	/* dram_init must store complete ramsize in gd->ram_size */
+	gd->ram_size = PHYS_SDRAM_1_SIZE;//#define PHYS_SDRAM_1_SIZE	0x04000000 /* 64 MB */
+setup_dest_addr,
+		gd->ram_size = board_reserve_ram_top(gd->ram_size);
+		gd->ram_top = CONFIG_SYS_SDRAM_BASE;// = PHYS_SDRAM_1 =0x30000000
+		gd->ram_top += get_effective_memsize();//return gd->ram_size;  //0x34000000
+		gd->ram_top = board_get_usable_ram_top(gd->mon_len);
+		gd->relocaddr = gd->ram_top;
+reserve_round_4k,
+	gd->relocaddr &= ~(4096 - 1);
+reserve_mmu,
+	gd->arch.tlb_size = PGTABLE_SIZE; //#define PGTABLE_SIZE		(4096 * 4)
+	gd->relocaddr -= gd->arch.tlb_size;
+	gd->relocaddr &= ~(0x10000 - 1);/* round down to next 64 kB limit */
+	gd->arch.tlb_addr = gd->relocaddr;	 //供后续 mmu_setup	 配置MMU使用
+reserve_uboot,
+	gd->relocaddr -= gd->mon_len;
+	gd->relocaddr &= ~(4096 - 1);
+	gd->start_addr_sp = gd->relocaddr;
+reserve_malloc,
+	gd->start_addr_sp = gd->start_addr_sp - TOTAL_MALLOC_LEN;
+reserve_board,	
+	if (!gd->bd) {
+		gd->start_addr_sp -= sizeof(bd_t);
+		gd->bd = (bd_t *)map_sysmem(gd->start_addr_sp, sizeof(bd_t));}	
+static int setup_machine(void)
+#ifdef CONFIG_MACH_TYPE
+	gd->bd->bi_arch_number = CONFIG_MACH_TYPE; /* board id for Linux */
+static int reserve_global_data(void)
+	gd->start_addr_sp -= sizeof(gd_t);
+	gd->new_gd = (gd_t *)map_sysmem(gd->start_addr_sp, sizeof(gd_t));	
+static int reserve_stacks(void)
+	/* make stack pointer 16-byte aligned */
+	gd->start_addr_sp -= 16;
+	gd->start_addr_sp &= ~0xf;	
+setup_dram_config,	
+	__weak void dram_init_banksize(void)
+	gd->bd->bi_dram[0].start = CONFIG_SYS_SDRAM_BASE;
+	gd->bd->bi_dram[0].size = get_effective_memsize();//return gd->ram_size;
+static int reloc_fdt(void)
+	if (gd->new_fdt) {
+		memcpy(gd->new_fdt, gd->fdt_blob, gd->fdt_size);
+		gd->fdt_blob = gd->new_fdt;
+static int setup_reloc(void)
+	#ifdef CONFIG_SYS_TEXT_BASE
+		gd->reloc_off = gd->relocaddr - CONFIG_SYS_TEXT_BASE;	
+	#endif
+		memcpy(gd->new_gd, (char *)gd, sizeof(gd_t));
+#if !defined(CONFIG_ARM) && !defined(CONFIG_SANDBOX)//不进去
+jump_to_copy,
+	relocate_code(gd->start_addr_sp, gd->new_gd, gd->relocaddr);
+
+crt0.S 
+	mov     r0, r9                  /* gd_t */
+	ldr	r1, [r9, #GD_RELOCADDR]	/* dest_addr */
+	ldr	pc, =board_init_r	/* this is auto-relocated! */
+void board_init_r(gd_t *new_gd, ulong dest_addr)//new_gd = gd dest_addr = gd->dest_addr
+if (initcall_run_list(init_sequence_r))hang();
+init_fnc_t init_sequence_r[] = {
+initr_reloc,
+	/* tell others: relocation done */
+	gd->flags |= GD_FLG_RELOC | GD_FLG_FULL_MALLOC_INIT;
+initr_caches,
+	enable_caches();
+initr_reloc_global_data,
+	monitor_flash_len = _end - __image_copy_start;
+initr_malloc,
+static int initr_malloc(void)
+	/* The malloc area is immediately below the monitor copy in DRAM */
+	malloc_start = gd->relocaddr - TOTAL_MALLOC_LEN;
+	mem_malloc_init((ulong)map_sysmem(malloc_start, TOTAL_MALLOC_LEN),TOTAL_MALLOC_LEN);
+	void mem_malloc_init(ulong start, ulong size)
+	{
+		mem_malloc_start = start;
+		mem_malloc_end = start + size;
+		mem_malloc_brk = start;
+#if defined(CONFIG_ARM) || defined(CONFIG_NDS32)
+board_init,	/* Setup chipselects */
+	gd->bd->bi_arch_number = MACH_TYPE_SMDK2410;
+	/* adress of boot parameters */
+	gd->bd->bi_boot_params = 0x30000100;
+	icache_enable();
+	dcache_enable();
+#endif
+stdio_init_tables,
+	INIT_LIST_HEAD(&(devs.list));
+initr_serial,
+	serial_initialize();
+	void serial_initialize(void)
+		s3c24xx_serial_initialize();//serial_devices = s3c24xx_serial2_device
+		s3c24xx_serial2_device->next =s3c24xx_serial1_device s3c24xx_serial1_device->next=s3c24xx_serial0_device
+			serial_register(&s3c24xx_serial0_device);
+			serial_register(&s3c24xx_serial1_device);
+			serial_register(&s3c24xx_serial2_device);
+			void serial_register(struct serial_device *dev)
+				dev->next = serial_devices;
+				serial_devices = dev;
+		serial_assign(default_serial_console()->name);//s3c24xx_serial0_device.name ="s3ser0";
+	int serial_assign(const char *name)
+		struct serial_device *s;
+		for (s = serial_devices; s; s = s->next) {
+			if (strcmp(s->name, name))continue;
+			serial_current = s;//=s3c24xx_serial0_device
+	static struct serial_device *get_current(void)
+		struct serial_device *dev;
+		if (!(gd->flags & GD_FLG_RELOC))
+			dev = default_serial_console();
+		else if (!serial_current)
+			dev = default_serial_console();//s3c24xx_serial0_device
+		else
+			dev = serial_current;
+initr_flash,
+	flash_size = flash_init();//Cfi_flash.c (drivers\mtd)
+	bd->bi_flashstart = CONFIG_SYS_FLASH_BASE;//0x00000000 /* Flash Bank #0 */
+	/* size of FLASH memory (final value) */
+	bd->bi_flashsize = flash_size;
+	bd->bi_flashoffset = monitor_flash_len;
+initr_nand,
+	nand_init();
+initr_env,
+	env_relocate();
+		if (gd->env_valid == 0) {//如果没有存储过
+		bootstage_error(BOOTSTAGE_ID_NET_CHECKSUM);
+		set_default_env("!bad CRC");//使用默认的环境变量
+			if (himport_r(&env_htab, (char *)default_environment,。。。
+			gd->flags |= GD_FLG_ENV_READY;
+			gd->flags |= GD_FLG_ENV_DEFAULT;
+	} else {
+		env_relocate_spec();//宏未打开，不使用
+	load_addr = getenv_ulong("loadaddr", 16, load_addr);
+#ifdef CONFIG_SYS_BOOTPARAMS_LEN
+initr_malloc_bootparams,
+	gd->bd->bi_boot_params = (ulong)malloc(CONFIG_SYS_BOOTPARAMS_LEN);
+#endif
+stdio_add_devices,
+	drv_system_init ();
+		struct stdio_dev dev;
+		memset (&dev, 0, sizeof (dev));
+		strcpy (dev.name, "serial");
+		dev.flags = DEV_FLAGS_OUTPUT | DEV_FLAGS_INPUT;
+		dev.putc = stdio_serial_putc;
+		dev.puts = stdio_serial_puts;
+		dev.getc = stdio_serial_getc;
+		dev.tstc = stdio_serial_tstc;
+		stdio_register (&dev);	
+			stdio_register_dev(dev, NULL);
+				_dev = stdio_clone(dev);
+				list_add_tail(&(_dev->list), &(devs.list));
+	serial_stdio_init ();
+		struct stdio_dev dev;
+		struct serial_device *s = serial_devices;	
+		while (s) {
+			memset(&dev, 0, sizeof(dev));
+			strcpy(dev.name, s->name);
+			dev.flags = DEV_FLAGS_OUTPUT | DEV_FLAGS_INPUT;
+			dev.start = serial_stub_start;
+			dev.stop = serial_stub_stop;
+			dev.putc = serial_stub_putc;
+			dev.puts = serial_stub_puts;
+			dev.getc = serial_stub_getc;
+			dev.tstc = serial_stub_tstc;
+			dev.priv = s;
+			stdio_register(&dev);
+			s = s->next;}	
+#ifdef CONFIG_USB_TTY
+	drv_usbtty_init ();#endif
+#ifdef CONFIG_NETCONSOLE
+	drv_nc_init ();#endif
+		memset(&dev, 0, sizeof(dev));
+		strcpy(dev.name, "nc");
+		dev.flags = DEV_FLAGS_OUTPUT | DEV_FLAGS_INPUT;
+		dev.start = nc_stdio_start;
+		dev.putc = nc_stdio_putc;
+		dev.puts = nc_stdio_puts;
+		dev.getc = nc_stdio_getc;
+		dev.tstc = nc_stdio_tstc;
+		rc = stdio_register(&dev);	
+initr_jumptable,
+	gd->jt = malloc(sizeof(struct jt_funcs));
+	#include <_exports.h>
+console_init_r,		/* fully init console as a device */
+	struct list_head *list = stdio_get_list();//return &(devs.list);
+	struct list_head *pos;struct stdio_dev *dev;
+	list_for_each(pos, list) {
+		dev = list_entry(pos, struct stdio_dev, list);
+		if ((dev->flags & DEV_FLAGS_INPUT) && (inputdev == NULL)) {
+			inputdev = dev;}
+		if ((dev->flags & DEV_FLAGS_OUTPUT) && (outputdev == NULL)) {
+			outputdev = dev;}
+		if(inputdev && outputdev)break;		}
+	if (outputdev != NULL) {
+		console_setfile(stdout, outputdev);
+		console_setfile(stderr, outputdev);}
+	if (inputdev != NULL) {
+		console_setfile(stdin, inputdev);}
+		static int console_setfile(int file, struct stdio_dev * dev)		
+			if (dev->start) {
+			error = dev->start(dev);}
+			stdio_devices[file] = dev;
+			switch (file) {
+			case stdin:
+				gd->jt->getc = getc;
+				gd->jt->tstc = tstc;break;
+			case stdout:
+				gd->jt->putc  = putc;
+				gd->jt->puts  = puts;
+				gd->jt->printf = printf;break;}				
+	for (i = 0; i < 3; i++) {
+		setenv(stdio_names[i], stdio_devices[i]->name);}
+		char *stdio_names[MAX_FILES] = { "stdin", "stdout", "stderr" };
+	gd->flags |= GD_FLG_DEVINIT;	/* device initialization completed */
+interrupt_init,
+	IRQ_STACK_START_IN = gd->irq_sp + 8;
+initr_enable_interrupts,
+	NULL
+initr_ethaddr,
+	bd_t *bd = gd->bd;
+	eth_getenv_enetaddr("ethaddr", bd->bi_enetaddr);
+		eth_parse_enetaddr(getenv(name), enetaddr);//解析环境变量"ethaddr"的值到bd->bi_enetaddr中 如无则置0
+			for (i = 0; i < 6; ++i) {
+			enetaddr[i] = addr ? simple_strtoul(addr, &end, 16) : 0;
+			if (addr)addr = (*end) ? end + 1 : end;}
+		return is_valid_ethaddr(enetaddr);	
+initr_net,
+	puts("Net:   ");
+	eth_initialize();
+		eth_devices = NULL;
+		eth_current = NULL;
+		eth_common_init();
+			miiphy_init();	
+run_main_loop,
+	for (;;)
+		main_loop();、
+			s = bootdelay_process();
+				const char *bootdelay_process(void)		
+					s = getenv("bootdelay");
+					bootdelay = s ? (int)simple_strtol(s, NULL, 10) : CONFIG_BOOTDELAY;
+					s = getenv("bootcmd");
+					stored_bootdelay = bootdelay;
+					return s;			
+			autoboot_command(s);//stored_bootdelay 时间内没有按键操作 则执行 bootm命令 有按键stored_bootdelay=0
+				if (stored_bootdelay != -1 && s && !abortboot(stored_bootdelay)) {
+				run_command_list(s, -1, 0);}
+			cli_loop();
+			CONFIG_HUSH_PARSER=y
+			#ifdef CONFIG_HUSH_PARSER
+				parse_file_outer();//推测在这里获取控制台环境命令并解析
+				for (;;);/* This point is never reached */
+			#endif 	
+
+
+#define CONFIG_SYS_INIT_SP_ADDR	(CONFIG_SYS_SDRAM_BASE + 0x1000 - \GENERATED_GBL_DATA_SIZE)
+PHYS_SDRAM_1 + 0x1000 - struct global_data长度
+#define PHYS_SDRAM_1		0x30000000 /* SDRAM Bank #1 */
+  ldr	sp, =(CONFIG_SYS_INIT_SP_ADDR)//30001000 - sizeof(struct global_data)
+  mov	r0, sp
+ r0 = r0-sizeof(struct global_data)
+ mov	sp, r0
+ mov	r9, r0
+ gd_ptr = (struct global_data *)base;  base= r0
+ memset(gd_ptr, '\0', sizeof(*gd));
+ base += roundup(sizeof(struct global_data), 16);
+ mov	r0, #0
+ 	gd->flags = boot_flags;//=0
+	gd->have_console = 0;
+	if (initcall_run_list(init_sequence_f))	
+	ldr	sp, [r9, #GD_START_ADDR_SP]	/* sp = gd->start_addr_sp */
+	ldr	r9, [r9, #GD_BD]		/* r9 = gd->bd */
+	sub	r9, r9, #GD_SIZE		/* new GD is below bd */	
+	adr	lr, here
+	ldr	r0, [r9, #GD_RELOC_OFF]		/* r0 = gd->reloc_off */
+	add	lr, lr, r0	
+	ldr	r0, [r9, #GD_RELOCADDR]		/* r0 = gd->relocaddr */
+	b	relocate_code
+here:	//此时已经在搬移后的SDRAM中执行
+bl	relocate_vectors
+		/*
+		 * Copy the relocated exception vectors to the
+		 * correct address
+		 * CP15 c1 V bit gives us the location of the vectors:
+		 * 0x00000000 or 0xFFFF0000.
+		 */
+		ldr	r0, [r9, #GD_RELOCADDR]	/* r0 = gd->relocaddr */
+		mrc	p15, 0, r2, c1, c0, 0	/* V bit (bit[13]) in CP15 c1 */
+		ands	r2, r2, #(1 << 13)
+		ldreq	r1, =0x00000000		/* If V=0 */
+		ldrne	r1, =0xFFFF0000		/* If V=1 */
+		ldmia	r0!, {r2-r8,r10}
+		stmia	r1!, {r2-r8,r10}
+		ldmia	r0!, {r2-r8,r10}
+		stmia	r1!, {r2-r8,r10}
+ldr	pc, =board_init_r	/* this is auto-relocated! */
+
+
+ENTRY(relocate_code)
+	ldr	r1, =__image_copy_start	/* r1 <- SRC &__image_copy_start */
+	subs	r4, r0, r1		/* r4 <- relocation offset */
+	beq	relocate_done		/* skip relocation */
+	ldr	r2, =__image_copy_end	/* r2 <- SRC &__image_copy_end */
+
+copy_loop:
+	ldmia	r1!, {r10-r11}		/* copy from source address [r1]    */
+	stmia	r0!, {r10-r11}		/* copy to   target address [r0]    */
+	cmp	r1, r2			/* until source end address [r2]    */
+	blo	copy_loop
+
+
+
+
+
+NOR FLASH 分析
+https://www.cnblogs.com/kele-dad/p/7044888.html
+unsigned long flash_init (void)	
+	for (i = 0; i < CONFIG_SYS_MAX_FLASH_BANKS; ++i) {//CONFIG_SYS_MAX_FLASH_BANKS = 1
+		flash_info[i].flash_id = FLASH_UNKNOWN;  //flash_info[1].flash_id = FLASH_UNKNOWN
+		/* Optionally write flash configuration register */
+		cfi_flash_set_config_reg(cfi_flash_bank_addr(i),cfi_flash_config_reg(i));
+		if (!flash_detect_legacy(cfi_flash_bank_addr(i), i))
+			flash_get_size(cfi_flash_bank_addr(i), i);
+		size += flash_info[i].size;}
+		flash_protect_default();
+		
+#define CONFIG_SYS_FLASH_BANKS_LIST     { CONFIG_SYS_FLASH_BASE }	
+#define CONFIG_SYS_FLASH_BASE	PHYS_FLASH_1	
+#define PHYS_FLASH_1		0x00000000 /* Flash Bank #0 */
+__weak phys_addr_t cfi_flash_bank_addr(int i)
+	return ((phys_addr_t [])CONFIG_SYS_FLASH_BANKS_LIST)[i];
+static u16 cfi_flash_config_reg(int i)
+#ifdef CONFIG_SYS_CFI_FLASH_CONFIG_REGS
+	return ((u16 [])CONFIG_SYS_CFI_FLASH_CONFIG_REGS)[i];
+#else
+	return 0xffff;
+	
+flash_detect_legacy（((phys_addr_t [])CONFIG_SYS_FLASH_BANKS_LIST)[0]，0）
+	flash_get_size(((phys_addr_t [])CONFIG_SYS_FLASH_BANKS_LIST)[0], 0);
+	
+	
+flash_detect_legacy	
+	:#define CONFIG_FLASH_CFI_LEGACY
+static int flash_detect_legacy(phys_addr_t base, int banknum)//base = 0x00000000
+	flash_info_t *info = &flash_info[banknum];
+	if (board_flash_get_legacy(base, banknum, info)) {
+				info->portwidth = FLASH_CFI_16BIT;
+				info->chipwidth = FLASH_CFI_BY16;
+				info->interface = FLASH_CFI_X16;
+		if (!info->vendor) {
+			int modes[] = {
+			CFI_CMDSET_AMD_STANDARD,
+			CFI_CMDSET_INTEL_STANDARD}
+			for (i = 0; i < ARRAY_SIZE(modes); i++) {
+				info->vendor = modes[i];
+				info->start[0] =(ulong)map_physmem(base,info->portwidth,MAP_NOCACHE);	//0x00000000
+				info->addr_unlock1 = 0x5555;
+				info->addr_unlock2 = 0x2AAA;
+				flash_read_jedec_ids(info);
+				if (jedec_flash_match(info, info->start[0]))break;//匹配则用jedec_table[i]填充info jedec_table[] 是nor 的芯片资料 需要把实际的nor添加进去
+				else   unmap_physmem((void *)info->start[0],info->portwidth); }}//NULL
+		switch(info->vendor) {
+		case CFI_CMDSET_AMD_STANDARD: info->cmd_reset = FLASH_CMD_RESET;
+		case CFI_CMDSET_INTEL_STANDARD: info->cmd_reset = AMD_CMD_RESET;}
+		info->flash_id = FLASH_MAN_CFI;
+		return 1}return 0
+	
+flash_read_jedec_ids
+	info->manufacturer_id = 0;
+	info->device_id       = 0;
+	info->device_id2      = 0;
+	switch (info->vendor) {
+	case CFI_CMDSET_INTEL_STANDARD:
+		cmdset_intel_read_jedec_ids(info);
+			flash_write_cmd(info, 0, 0, FLASH_CMD_RESET);
+			udelay(1);
+			flash_write_cmd(info, 0, 0, FLASH_CMD_READ_ID);
+			udelay(1000); /* some flash are slow to respond */
+			info->manufacturer_id = flash_read_uchar (info,FLASH_OFFSET_MANUFACTURER_ID);//寄存器读取
+			info->device_id = (info->chipwidth == FLASH_CFI_16BIT) ?flash_read_word (info, FLASH_OFFSET_DEVICE_ID) :flash_read_uchar (info, FLASH_OFFSET_DEVICE_ID);
+			flash_write_cmd(info, 0, 0, FLASH_CMD_RESET);		
+		break;
+	case CFI_CMDSET_AMD_STANDARD:
+		cmdset_amd_read_jedec_ids(info);	
+		}
+static void cmdset_amd_read_jedec_ids(flash_info_t *info)
+	flash_write_cmd(info, 0, 0, AMD_CMD_RESET);
+	flash_unlock_seq(info, 0);
+	flash_write_cmd(info, 0, info->addr_unlock1, FLASH_CMD_READ_ID);
+	udelay(1000); /* some flash are slow to respond */
+	manuId = flash_read_uchar (info, FLASH_OFFSET_MANUFACTURER_ID);
+	/* JEDEC JEP106Z specifies ID codes up to bank 7 */
+	while (manuId == FLASH_CONTINUATION_CODE && bankId < 0x800) {
+		bankId += 0x100;
+		manuId = flash_read_uchar (info,bankId | FLASH_OFFSET_MANUFACTURER_ID);}
+	info->manufacturer_id = manuId;
+	switch (info->chipwidth){
+	case FLASH_CFI_8BIT:
+		info->device_id = flash_read_uchar (info,FLASH_OFFSET_DEVICE_ID);
+		if (info->device_id == 0x7E) {
+			/* AMD 3-byte (expanded) device ids */
+			info->device_id2 = flash_read_uchar (info,FLASH_OFFSET_DEVICE_ID2);
+			info->device_id2 <<= 8;
+			info->device_id2 |= flash_read_uchar (info,FLASH_OFFSET_DEVICE_ID3);}
+		break;
+	case FLASH_CFI_16BIT:
+		info->device_id = flash_read_word (info,FLASH_OFFSET_DEVICE_ID);
+		if ((info->device_id & 0xff) == 0x7E) {
+			/* AMD 3-byte (expanded) device ids */
+			info->device_id2 = flash_read_uchar (info,FLASH_OFFSET_DEVICE_ID2);
+			info->device_id2 <<= 8;
+			info->device_id2 |= flash_read_uchar (info,FLASH_OFFSET_DEVICE_ID3);}}
+	flash_write_cmd(info, 0, 0, AMD_CMD_RESET);}
+
+
+void flash_write_cmd (flash_info_t * info, flash_sect_t sect,uint offset, u32 cmd)
+	addr = flash_map (info, sect, offset);
+	flash_make_cmd (info, cmd, &cword);//cmd ->cword
+	flash_write16(cword.w16, addr);//__raw_writew(value, addr); 寄存器操作
+	sync();
+	
+flash_map (flash_info_t * info, flash_sect_t sect, uint offset)
+	unsigned int byte_offset = offset * info->portwidth;
+	return (void *)(info->start[sect] + byte_offset);
+static void flash_make_cmd(flash_info_t *info, u32 cmd, void *cmdbuf)
+	uchar *cp = (uchar *) cmdbuf;
+	for (i = info->portwidth; i > 0; i--){
+		cword_offset = (info->portwidth-i)%info->chipwidth;
+		cp_offset = i - 1;
+		val = *((uchar*)&cmd + sizeof(u32) - cword_offset - 1);
+		cp[cp_offset] = (cword_offset >= sizeof(u32)) ? 0x00 : val;}
+	
+cfi_flash_set_config_reg（((phys_addr_t [])CONFIG_SYS_FLASH_BANKS_LIST)[0]，0xffff）//NULL
+
+
