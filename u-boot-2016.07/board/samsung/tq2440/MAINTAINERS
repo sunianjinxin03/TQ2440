@@ -1,0 +1,6 @@
+TQ2440 BOARD
+M:	David Müller <d.mueller@elsoft.ch>
+S:	Maintained
+F:	board/samsung/tq2440/
+F:	include/configs/tq2440.h
+F:	configs/tq2440_defconfig
